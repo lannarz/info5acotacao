@@ -1,27 +1,140 @@
-import useSWR from 'swr';
-import { fetcher } from '../lib/fetcher';
+import React, { useState } from 'react';
 
-export default function Home() {
-  const { data, error, isLoading } = useSWR(
-    'https://economia.awesomeapi.com.br/json/last/USD-BRL,EUR-BRL?token=927c456f9a4bec44887e5cc0e2d154c8f843f33855ec2ec0d15db596ee7d19cd',
-    fetcher,
-    { refreshInterval: 5000 } // Atualiza a cada 60s //1000 == 1 segundo refresh page
-  );
+function CotacaoForm() {
+  const [dataInicial, setDataInicial] = useState('');
+  const [dataFinal, setDataFinal] = useState('');
+  const [resultados, setResultados] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  if (error) return <div>Erro ao carregar dados.</div>;
-  if (isLoading || !data) return <div>Carregando...</div>;
+  const formatarData = (dateStr) => dateStr.replaceAll('-', '');
 
-  const usdbrl = data.USDBRL;
+  const buscarCotacao = async (e) => {
+    e.preventDefault();
+    if (!dataInicial || !dataFinal) return;
+
+    const url = `https://economia.awesomeapi.com.br/json/daily/USD-BRL/365?start_date=${formatarData(dataInicial)}&end_date=${formatarData(dataFinal)}`;
+
+    try {
+      setLoading(true);
+      const res = await fetch(url);
+      const data = await res.json();
+      setResultados(data.reverse());
+      setError('');
+    } catch (err) {
+      setError('Erro ao buscar dados.');
+      setResultados([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const styles = {
+    container: {
+      maxWidth: '550px',
+      margin: '60px auto',
+      backgroundColor: '#ffffff',
+      padding: '40px',
+      borderRadius: '12px',
+      textAlign: 'center',
+      background: '#e0f0ff'
+    },
+
+    titulo: {
+      marginBottom: '15px',
+      fontWeight: 'bold'
+    },
+
+    campo: {
+      marginBottom: '20px',
+      textAlign: 'left'
+    },
+
+    data: {
+      display: 'block',
+      marginBottom: '6px',
+      color: '#005f99',
+      fontWeight: 'bold'
+    },
+
+
+    input: {
+      width: '100%',
+      padding: '6px',
+      border: '1px solid #007acc',
+      borderRadius: '6px',
+      fontSize: '14px'
+    },
+
+    buscar: {
+      backgroundColor: '#007acc',
+      color: 'white',
+      padding: '10px 24px',
+      fontSize: '16px',
+      borderRadius: '12px',
+      cursor: 'pointer'
+    },
+   
+    resultado: {
+      marginTop: '30px',
+      textAlign: 'left',
+      color: '#333'
+    },
+    
+    erro: {
+      color: 'red',
+      marginTop: '20px'
+    },
+
+    buscando: {
+      color: '#333',
+      marginTop: '20px'
+    }
+  };
 
   return (
-    <main style={{ padding: '2rem', fontFamily: 'Arial' }}>
-      <h1>Cotação Dólar Hoje (USD/BRL)</h1>
-      <p><strong>Compra:</strong> R$ {usdbrl.bid}</p>
-      <p><strong>Venda:</strong> R$ {usdbrl.ask}</p>
-      <p><strong>Alta:</strong> R$ {usdbrl.high}</p>
-      <p><strong>Baixa:</strong> R$ {usdbrl.low}</p>
-      <p><strong>Variação:</strong> {usdbrl.varBid} ({usdbrl.pctChange}%)</p>
-      <small>Atualizado: {new Date(Number(usdbrl.timestamp) * 1000).toLocaleString()}</small>
-    </main>
+    <div style={styles.container}>
+      <h1 style={styles.titulo}>Buscar Cotação USD/BRL</h1>
+
+      <form onSubmit={buscarCotacao}>
+        <div style={styles.campo}>
+          <label style={styles.data}>Data Inicial:</label>
+          <input
+            type="date"
+            value={dataInicial}
+            onChange={(e) => setDataInicial(e.target.value)}
+            style={styles.input}
+          />
+        </div>
+
+        <div style={styles.campo}>
+          <label style={styles.data}>Data Final:</label>
+          <input
+            type="date"
+            value={dataFinal}
+            onChange={(e) => setDataFinal(e.target.value)}
+            style={styles.input}
+          />
+        </div>
+
+        <button type="submit" style={styles.buscar}>Buscar</button>
+      </form>
+
+      {loading && <p style={styles.buscando}>Buscando...</p>}
+      {error && <p style={styles.erro}>{error}</p>}
+
+      {resultados.length > 0 && (
+        <div style={styles.resultado}>
+          <h2 style={styles.titulo}>Resultados:</h2>
+          {resultados.map((item) => (
+             <p key={item.timestamp}>
+             Data: {new Date(item.timestamp * 1000).toLocaleDateString()} - Valor: R$ {parseFloat(item.bid).toFixed(4)}
+           </p>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
+
+export default CotacaoForm;
